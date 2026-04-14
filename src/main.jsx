@@ -144,34 +144,69 @@ const buildPlainTextSignature = ({ name, title, company, phone, website, linkedi
 };
 
 const copyHtmlToClipboard = async (html, plainText) => {
+  // Primary: modern Clipboard API with ClipboardItem
   if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
-    const clipboardItems = [
-      new ClipboardItem({
-        'text/html': new Blob([html], { type: 'text/html' }),
-        'text/plain': new Blob([plainText], { type: 'text/plain' })
-      })
-    ];
-
-    await navigator.clipboard.write(clipboardItems);
-    return;
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob
+        })
+      ]);
+      return;
+    } catch {
+      // ClipboardItem failed (permissions, context) — fall through to legacy
+    }
   }
 
-  await new Promise((resolve, reject) => {
-    const handleCopy = (event) => {
-      event.preventDefault();
-      event.clipboardData?.setData('text/html', html);
-      event.clipboardData?.setData('text/plain', plainText);
-      resolve();
-    };
-
-    document.addEventListener('copy', handleCopy, { once: true });
-
-    const didCopy = document.execCommand('copy');
-    if (!didCopy) {
-      document.removeEventListener('copy', handleCopy);
-      reject(new Error('Copy command failed'));
-    }
+  // Fallback: inject HTML into a hidden contenteditable div, select it, and copy.
+  // The copy event handler overrides clipboard data so both text/html and
+  // text/plain are set exactly to what we want.
+  const container = document.createElement('div');
+  container.setAttribute('contenteditable', 'true');
+  container.innerHTML = html;
+  Object.assign(container.style, {
+    position: 'fixed',
+    left: '-9999px',
+    top: '0',
+    opacity: '0',
+    pointerEvents: 'none'
   });
+  document.body.appendChild(container);
+
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(container);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const copyPromise = new Promise((resolve, reject) => {
+      const handleCopy = (event) => {
+        event.preventDefault();
+        event.clipboardData?.setData('text/html', html);
+        event.clipboardData?.setData('text/plain', plainText);
+        resolve();
+      };
+
+      document.addEventListener('copy', handleCopy, { once: true });
+
+      if (!document.execCommand('copy')) {
+        document.removeEventListener('copy', handleCopy);
+        reject(new Error('Copy command failed'));
+      }
+    });
+
+    await copyPromise;
+  } finally {
+    document.body.removeChild(container);
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+    }
+  }
 };
 
 const App = () => {
