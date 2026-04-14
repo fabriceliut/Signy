@@ -218,13 +218,20 @@ const App = () => {
     if (phone.trim()) contactParts.push(`<span style="color:${palette.meta};">${safePhone}</span>`);
     if (normalizedWebsite) contactParts.push(`<a href="${escapeHtml(normalizedWebsite)}" style="color:${palette.meta};text-decoration:none;">${websiteLabel}</a>`);
 
-    // Social links row → LinkedIn icon + Instagram icon
+    // Social links — icon-only by default, icon+text for bold & editorial
+    const showSocialText = signatureTemplate === 'bold' || signatureTemplate === 'editorial';
+    // Minimal monochrome SVG data-URIs (16×16, #666)
+    const liIcon = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%230a66c2'%3E%3Cpath d='M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05a3.74 3.74 0 0 1 3.37-1.85c3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77A1.75 1.75 0 0 0 0 1.73v20.54A1.75 1.75 0 0 0 1.77 24h20.45A1.75 1.75 0 0 0 24 22.27V1.73A1.75 1.75 0 0 0 22.22 0z'/%3E%3C/svg%3E`;
+    const igIcon = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%23c13584'%3E%3Cpath d='M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.97.24 2.44.41a4.08 4.08 0 0 1 1.52.99 4.08 4.08 0 0 1 .99 1.52c.17.47.36 1.27.41 2.44.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.97-.41 2.44a4.37 4.37 0 0 1-2.51 2.51c-.47.17-1.27.36-2.44.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.97-.24-2.44-.41a4.08 4.08 0 0 1-1.52-.99 4.08 4.08 0 0 1-.99-1.52c-.17-.47-.36-1.27-.41-2.44C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.24-1.97.41-2.44a4.08 4.08 0 0 1 .99-1.52 4.08 4.08 0 0 1 1.52-.99c.47-.17 1.27-.36 2.44-.41C8.42 2.17 8.8 2.16 12 2.16M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.77 5.77 0 0 0-2.09 1.36A5.77 5.77 0 0 0 .69 4.08C.39 4.84.19 5.72.13 6.99.07 8.27.06 8.68.06 11.94s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91a5.77 5.77 0 0 0 1.36 2.09 5.77 5.77 0 0 0 2.09 1.36c.76.3 1.64.5 2.91.56C8.33 23.87 8.74 23.88 12 23.88s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a6.02 6.02 0 0 0 3.45-3.45c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.77 5.77 0 0 0-1.36-2.09A5.77 5.77 0 0 0 19.85.63C19.09.33 18.21.13 16.94.07 15.66.01 15.25 0 11.99 0h.01zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z'/%3E%3C/svg%3E`;
+
     const socialParts = [];
     if (normalizedLinkedin) {
-      socialParts.push(`<a href="${escapeHtml(normalizedLinkedin)}" style="color:#0a66c2;text-decoration:none;font-size:13px;font-weight:600;" title="LinkedIn"><img src="https://cdn-icons-png.flaticon.com/16/174/174857.png" width="14" height="14" alt="" style="vertical-align:middle;border:0;margin-right:4px;" />LinkedIn</a>`);
+      const label = showSocialText ? `<span style="margin-left:5px;">LinkedIn</span>` : '';
+      socialParts.push(`<a href="${escapeHtml(normalizedLinkedin)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#0a66c2;font-size:13px;font-weight:600;line-height:1;" title="LinkedIn"><img src="${liIcon}" width="16" height="16" alt="LinkedIn" style="display:inline-block;vertical-align:middle;border:0;" />${label}</a>`);
     }
     if (normalizedInstagram) {
-      socialParts.push(`<a href="${escapeHtml(normalizedInstagram)}" style="color:#c13584;text-decoration:none;font-size:13px;font-weight:600;" title="Instagram"><img src="https://cdn-icons-png.flaticon.com/16/174/174855.png" width="14" height="14" alt="" style="vertical-align:middle;border:0;margin-right:4px;" />Instagram</a>`);
+      const label = showSocialText ? `<span style="margin-left:5px;">Instagram</span>` : '';
+      socialParts.push(`<a href="${escapeHtml(normalizedInstagram)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#c13584;font-size:13px;font-weight:600;line-height:1;" title="Instagram"><img src="${igIcon}" width="16" height="16" alt="Instagram" style="display:inline-block;vertical-align:middle;border:0;" />${label}</a>`);
     }
 
     // Template configs
@@ -258,7 +265,7 @@ const App = () => {
           ${safeTitle ? `<tr><td class="sig-title" style="font-size:${tc.titleSize}px;line-height:1.45;font-weight:600;color:${palette.title};padding:0 0 ${tc.rowGap}px;">${safeTitle}</td></tr>` : ''}
           ${safeCompany ? `<tr><td class="sig-company" style="font-size:${tc.compSize}px;line-height:1.4;font-weight:700;letter-spacing:${tc.compSpacing};text-transform:${tc.compTransform};color:${palette.company};padding:0 0 ${tc.compGap}px;">${safeCompany}</td></tr>` : ''}
           ${contactParts.length ? `<tr><td class="sig-meta" style="font-size:13px;line-height:1.5;color:${palette.meta};padding:0 0 ${tc.contactGap}px;">${contactParts.join(`<span class="sig-muted" style="color:${palette.muted};"> &nbsp;•&nbsp; </span>`)}</td></tr>` : ''}
-          ${socialParts.length ? `<tr><td style="padding:0 0 4px;font-size:13px;line-height:1.5;">${socialParts.join(`<span style="color:${palette.muted};"> &nbsp; </span>`)}</td></tr>` : ''}
+          ${socialParts.length ? `<tr><td style="padding:0 0 4px;font-size:0;line-height:1;">${socialParts.join(`<span style="display:inline-block;width:${showSocialText ? '12' : '8'}px;"></span>`)}</td></tr>` : ''}
         </table>
       </td>`;
 
