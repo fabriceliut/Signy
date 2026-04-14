@@ -1,145 +1,117 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { 
-  User, Briefcase, Phone, Globe, Linkedin, Image as ImageIcon,
+import {
+  User, Briefcase, Phone, Globe, Linkedin, Instagram, Image as ImageIcon,
   Copy, HelpCircle, Sun, Moon, Check, Mail, Zap, ShieldCheck,
-  Layout, MousePointer2, Heart
+  Layout, MousePointer2, Heart, Palette
 } from 'lucide-react';
 
+// ---------------------------------------------------------------------------
+// Storage keys
+// ---------------------------------------------------------------------------
 const STORAGE_KEY = 'signy.form-data';
 const THEME_STORAGE_KEY = 'signy.preview-theme';
 const TEMPLATE_STORAGE_KEY = 'signy.signature-template';
+const ACCENT_STORAGE_KEY = 'signy.accent-color';
 
+// ---------------------------------------------------------------------------
+// Default form data
+// ---------------------------------------------------------------------------
 const DEFAULT_FORM_DATA = {
   name: 'John Doe',
-  title: 'Charge de projet | Coordination & Gestion d\'equipes',
+  title: 'Accompagnement opérationnel & Stratégique',
   phone: '+33 6 00 00 00 00',
   website: 'votre-site.fr',
   linkedin: 'linkedin.com/in/votreprofil',
+  instagram: '',
   company: 'Mon Entreprise',
   logoUrl: '',
   newsletterUrl: 'https://newsletter.votre-site.fr',
-  availabilityText: 'Je reponds en general sous 48h par mail. Si c\'est urgent, je suis plus reactif par SMS ou appel au +33 6 00 00 00 00.',
-  ctaText: 'Rejoignez ma lettre d\'information pour recevoir mes derniers conseils et ressources chaque mois.'
+  availabilityText: 'Je réponds en général sous 48h par mail. Si c\'est urgent, je suis plus réactif par SMS ou appel direct.',
+  ctaText: '1 fois par mois, découvrez les ressources provenant de ma veille & explorations, gratuitement.'
 };
 
+// ---------------------------------------------------------------------------
+// 6 templates – from ultra-minimal to aesthetic
+// ---------------------------------------------------------------------------
 const TEMPLATE_OPTIONS = {
-  classic: {
-    label: 'Classique',
-    description: 'Equilibre, lisible, passe partout.'
-  },
-  compact: {
-    label: 'Compacte',
-    description: 'Plus dense, pratique pour Outlook.'
-  },
-  editorial: {
-    label: 'Editoriale',
-    description: 'Plus marquee, avec accent visuel.'
-  }
+  classic: { label: 'Classique', description: 'Équilibré, lisible, passe-partout.' },
+  minimal: { label: 'Minimale', description: 'L\'essentiel, rien de plus.' },
+  compact: { label: 'Compacte', description: 'Dense, optimisé pour Outlook.' },
+  elegant: { label: 'Élégante', description: 'Typographique, raffinée.' },
+  bold: { label: 'Impact', description: 'Noms et titres affirmés.' },
+  editorial: { label: 'Éditoriale', description: 'Accent visuel marqué.' }
 };
 
-const signaturePalette = {
-  light: {
-    name: '#111827',
-    title: '#334155',
-    company: '#9a3412',
-    meta: '#475569',
-    muted: '#64748b',
-    divider: '#e2e8f0',
-    avatarBorder: '#e2e8f0',
-    ctaBg: '#fff7ed',
-    ctaBorder: '#fdba74',
-    ctaText: '#9a3412'
-  },
-  dark: {
-    name: '#f8fafc',
-    title: '#e2e8f0',
-    company: '#fdba74',
-    meta: '#cbd5e1',
-    muted: '#94a3b8',
-    divider: '#334155',
-    avatarBorder: '#475569',
-    ctaBg: '#2b1a10',
-    ctaBorder: '#9a3412',
-    ctaText: '#fed7aa'
-  }
+// ---------------------------------------------------------------------------
+// 7 accent colour presets – WCAG AA safe on white AND on #0f172a
+// ---------------------------------------------------------------------------
+const ACCENT_COLORS = {
+  amber:   { label: 'Ambre',    light: '#92400e', dark: '#fbbf24', lightBg: '#fffbeb', lightBorder: '#fcd34d', darkBg: '#2b1a10', darkBorder: '#92400e' },
+  blue:    { label: 'Bleu',     light: '#1e40af', dark: '#60a5fa', lightBg: '#eff6ff', lightBorder: '#93c5fd', darkBg: '#0c1a33', darkBorder: '#1e40af' },
+  emerald: { label: 'Émeraude', light: '#065f46', dark: '#34d399', lightBg: '#ecfdf5', lightBorder: '#6ee7b7', darkBg: '#0a1f17', darkBorder: '#065f46' },
+  rose:    { label: 'Rose',     light: '#9f1239', dark: '#fb7185', lightBg: '#fff1f2', lightBorder: '#fda4af', darkBg: '#2a0a14', darkBorder: '#9f1239' },
+  violet:  { label: 'Violet',   light: '#5b21b6', dark: '#a78bfa', lightBg: '#f5f3ff', lightBorder: '#c4b5fd', darkBg: '#1a0d33', darkBorder: '#5b21b6' },
+  teal:    { label: 'Sarcelle', light: '#115e59', dark: '#2dd4bf', lightBg: '#f0fdfa', lightBorder: '#5eead4', darkBg: '#0a1f1d', darkBorder: '#115e59' },
+  slate:   { label: 'Neutre',   light: '#334155', dark: '#94a3b8', lightBg: '#f8fafc', lightBorder: '#cbd5e1', darkBg: '#1e293b', darkBorder: '#334155' }
 };
 
+// ---------------------------------------------------------------------------
+// Dynamic palette builder (accent-aware)
+// ---------------------------------------------------------------------------
+const buildPalette = (theme, accentKey) => {
+  const a = ACCENT_COLORS[accentKey] || ACCENT_COLORS.amber;
+  if (theme === 'dark') {
+    return { name: '#f8fafc', title: '#e2e8f0', company: a.dark, meta: '#cbd5e1', muted: '#94a3b8', divider: '#334155', avatarBorder: '#475569', ctaBg: a.darkBg, ctaBorder: a.darkBorder, ctaText: a.dark };
+  }
+  return { name: '#111827', title: '#334155', company: a.light, meta: '#475569', muted: '#64748b', divider: '#e2e8f0', avatarBorder: '#e2e8f0', ctaBg: a.lightBg, ctaBorder: a.lightBorder, ctaText: a.light };
+};
+
+// ---------------------------------------------------------------------------
+// Helpers: storage
+// ---------------------------------------------------------------------------
 const getStoredValue = (key, fallback) => {
-  if (typeof window === 'undefined') {
-    return fallback;
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(key);
-    if (!rawValue) {
-      return fallback;
-    }
-
-    return { ...fallback, ...JSON.parse(rawValue) };
-  } catch {
-    return fallback;
-  }
+  if (typeof window === 'undefined') return fallback;
+  try { const r = window.localStorage.getItem(key); if (!r) return fallback; return { ...fallback, ...JSON.parse(r) }; } catch { return fallback; }
+};
+const getStoredString = (key, fallback, validSet) => {
+  if (typeof window === 'undefined') return fallback;
+  const v = window.localStorage.getItem(key);
+  return v && (!validSet || validSet.has(v)) ? v : fallback;
 };
 
-const getStoredTheme = () => {
-  if (typeof window === 'undefined') {
-    return 'light';
-  }
+// ---------------------------------------------------------------------------
+// Helpers: text
+// ---------------------------------------------------------------------------
+const escapeHtml = (v = '') => v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+const formatDisplayUrl = (v = '') => v.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+const normalizeUrl = (v = '') => { const t = v.trim(); if (!t) return ''; return /^https?:\/\//i.test(t) ? t : `https://${t}`; };
 
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return storedTheme === 'dark' ? 'dark' : 'light';
+/** Auto-format phone: +33 6 26 88 06 86 */
+const formatPhone = (raw = '') => {
+  const digits = raw.replace(/[^\d+]/g, '');
+  if (!digits) return raw;
+  if (digits.startsWith('+')) {
+    const cc = digits.slice(0, 3);
+    const rest = digits.slice(3);
+    return cc + ' ' + rest.replace(/(\d{1,2})(?=\d)/g, '$1 ').trim();
+  }
+  return digits.replace(/(\d{1,2})(?=\d)/g, '$1 ').trim();
 };
 
-const getStoredTemplate = () => {
-  if (typeof window === 'undefined') {
-    return 'classic';
-  }
-
-  const storedTemplate = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
-  return storedTemplate && TEMPLATE_OPTIONS[storedTemplate] ? storedTemplate : 'classic';
-};
-
-const escapeHtml = (value = '') => value
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#39;');
-
-const formatDisplayUrl = (value = '') => value
-  .replace(/^https?:\/\//i, '')
-  .replace(/\/$/, '');
-
-const normalizeUrl = (value = '') => {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    return '';
-  }
-
-  if (/^https?:\/\//i.test(trimmedValue)) {
-    return trimmedValue;
-  }
-
-  return `https://${trimmedValue}`;
-};
-
-const buildPlainTextSignature = ({ name, title, company, phone, website, linkedin, availabilityText, ctaText, newsletterUrl }) => {
-  const lines = [name, title, company].filter(Boolean);
-  const contactLine = [phone, website, linkedin].filter(Boolean).join(' | ');
-
-  if (contactLine) {
-    lines.push(contactLine);
-  }
-
-  if (availabilityText) {
-    lines.push('', availabilityText);
-  }
-
-  if (ctaText && newsletterUrl) {
-    lines.push('', `${ctaText} ${newsletterUrl}`);
-  }
-
+// ---------------------------------------------------------------------------
+// Plain-text builder
+// ---------------------------------------------------------------------------
+const buildPlainTextSignature = (d) => {
+  const lines = [d.name, d.title, d.company].filter(Boolean);
+  const parts = [];
+  if (d.phone) parts.push(formatPhone(d.phone));
+  if (d.website) parts.push(formatDisplayUrl(d.website));
+  if (parts.length) lines.push(parts.join('  •  '));
+  if (d.linkedin) lines.push('LinkedIn: ' + normalizeUrl(d.linkedin));
+  if (d.instagram) lines.push('Instagram: ' + normalizeUrl(d.instagram));
+  if (d.availabilityText) lines.push('', d.availabilityText);
+  if (d.ctaText && d.newsletterUrl) lines.push('', d.ctaText + ' ' + normalizeUrl(d.newsletterUrl));
   return lines.join('\n');
 };
 
@@ -156,82 +128,45 @@ const copyHtmlToClipboard = async (html, plainText) => {
         })
       ]);
       return;
-    } catch {
-      // ClipboardItem failed (permissions, context) — fall through to legacy
-    }
+    } catch { /* fall through */ }
   }
 
-  // Fallback: inject HTML into a hidden contenteditable div, select it, and copy.
-  // The copy event handler overrides clipboard data so both text/html and
-  // text/plain are set exactly to what we want.
-  const container = document.createElement('div');
-  container.setAttribute('contenteditable', 'true');
-  container.innerHTML = html;
-  Object.assign(container.style, {
-    position: 'fixed',
-    left: '-9999px',
-    top: '0',
-    opacity: '0',
-    pointerEvents: 'none'
-  });
-  document.body.appendChild(container);
+  // Fallback : intercept copy event to force text/html + text/plain
+  const textarea = document.createElement('textarea');
+  textarea.value = plainText;
+  Object.assign(textarea.style, { position: 'fixed', left: '-9999px', top: '0', opacity: '0' });
+  document.body.appendChild(textarea);
+  textarea.select();
 
+  const handler = (e) => {
+    e.preventDefault();
+    e.clipboardData.setData('text/html', html);
+    e.clipboardData.setData('text/plain', plainText);
+  };
+
+  document.addEventListener('copy', handler);
   try {
-    const range = document.createRange();
-    range.selectNodeContents(container);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-
-    const copyPromise = new Promise((resolve, reject) => {
-      const handleCopy = (event) => {
-        event.preventDefault();
-        event.clipboardData?.setData('text/html', html);
-        event.clipboardData?.setData('text/plain', plainText);
-        resolve();
-      };
-
-      document.addEventListener('copy', handleCopy, { once: true });
-
-      if (!document.execCommand('copy')) {
-        document.removeEventListener('copy', handleCopy);
-        reject(new Error('Copy command failed'));
-      }
-    });
-
-    await copyPromise;
+    document.execCommand('copy');
   } finally {
-    document.body.removeChild(container);
-    const selection = window.getSelection();
-    if (selection) {
-      selection.removeAllRanges();
-    }
+    document.removeEventListener('copy', handler);
+    document.body.removeChild(textarea);
   }
 };
 
 const App = () => {
   const [formData, setFormData] = useState(() => getStoredValue(STORAGE_KEY, DEFAULT_FORM_DATA));
-  const [previewTheme, setPreviewTheme] = useState(getStoredTheme);
-  const [signatureTemplate, setSignatureTemplate] = useState(getStoredTemplate);
+  const [previewTheme, setPreviewTheme] = useState(() => getStoredString(THEME_STORAGE_KEY, 'light', new Set(['light', 'dark'])));
+  const [signatureTemplate, setSignatureTemplate] = useState(() => getStoredString(TEMPLATE_STORAGE_KEY, 'classic', new Set(Object.keys(TEMPLATE_OPTIONS))));
+  const [accentColor, setAccentColor] = useState(() => getStoredString(ACCENT_STORAGE_KEY, 'amber', new Set(Object.keys(ACCENT_COLORS))));
   const [copyStatus, setCopyStatus] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const signatureRef = useRef(null);
 
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-  }, [formData]);
-
-  useEffect(() => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, previewTheme);
-  }, [previewTheme]);
-
-  useEffect(() => {
-    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, signatureTemplate);
-  }, [signatureTemplate]);
+  useEffect(() => { setIsVisible(true); }, []);
+  useEffect(() => { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(formData)); }, [formData]);
+  useEffect(() => { window.localStorage.setItem(THEME_STORAGE_KEY, previewTheme); }, [previewTheme]);
+  useEffect(() => { window.localStorage.setItem(TEMPLATE_STORAGE_KEY, signatureTemplate); }, [signatureTemplate]);
+  useEffect(() => { window.localStorage.setItem(ACCENT_STORAGE_KEY, accentColor); }, [accentColor]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -242,15 +177,23 @@ const App = () => {
     setFormData(DEFAULT_FORM_DATA);
     setPreviewTheme('light');
     setSignatureTemplate('classic');
+    setAccentColor('amber');
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(THEME_STORAGE_KEY);
     window.localStorage.removeItem(TEMPLATE_STORAGE_KEY);
+    window.localStorage.removeItem(ACCENT_STORAGE_KEY);
     setCopyStatus(null);
   };
 
+  // -----------------------------------------------------------------------
+  // Generate email-safe HTML
+  // -----------------------------------------------------------------------
   const generateSignatureHTML = ({ forCopy = false } = {}) => {
-    const palette = forCopy ? signaturePalette.light : signaturePalette[previewTheme];
-    const { name, title, phone, website, linkedin, company, logoUrl, newsletterUrl, availabilityText, ctaText } = formData;
+    const palette = forCopy ? buildPalette('light', accentColor) : buildPalette(previewTheme, accentColor);
+    const darkPal = buildPalette('dark', accentColor);
+    const accent = ACCENT_COLORS[accentColor] || ACCENT_COLORS.amber;
+    const { name, title, phone, website, linkedin, instagram, company, logoUrl, newsletterUrl, availabilityText, ctaText } = formData;
+
     const safeName = escapeHtml(name.trim() || 'Nom');
     const safeTitle = escapeHtml(title.trim());
     const safeCompany = escapeHtml(company.trim());
@@ -258,164 +201,94 @@ const App = () => {
     const safeCtaText = escapeHtml(ctaText.trim());
     const normalizedWebsite = normalizeUrl(website);
     const normalizedLinkedin = normalizeUrl(linkedin);
+    const normalizedInstagram = normalizeUrl(instagram);
     const normalizedNewsletter = normalizeUrl(newsletterUrl);
     const websiteLabel = escapeHtml(formatDisplayUrl(website));
-    const linkedinLabel = escapeHtml(formatDisplayUrl(linkedin));
-    const initials = (name.trim() || 'JD')
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
+    const formattedPhone = formatPhone(phone.trim());
+    const safePhone = escapeHtml(formattedPhone);
+
+    const initials = (name.trim() || 'JD').split(/\s+/).filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    const avatarBg = accent.light.replace('#', '');
     const finalLogo = logoUrl.trim() !== ''
       ? logoUrl.trim()
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=fff7ed&color=9a3412&bold=true&size=128`;
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${avatarBg}&color=fff&bold=true&size=128`;
 
+    // Contact line (phone + website)
     const contactParts = [];
-    if (phone.trim()) {
-      contactParts.push(`<span style="color: ${palette.meta};">${escapeHtml(phone.trim())}</span>`);
+    if (phone.trim()) contactParts.push(`<span style="color:${palette.meta};">${safePhone}</span>`);
+    if (normalizedWebsite) contactParts.push(`<a href="${escapeHtml(normalizedWebsite)}" style="color:${palette.meta};text-decoration:none;">${websiteLabel}</a>`);
+
+    // Social links row → LinkedIn icon + Instagram icon
+    const socialParts = [];
+    if (normalizedLinkedin) {
+      socialParts.push(`<a href="${escapeHtml(normalizedLinkedin)}" style="color:#0a66c2;text-decoration:none;font-size:13px;font-weight:600;" title="LinkedIn"><img src="https://cdn-icons-png.flaticon.com/16/174/174857.png" width="14" height="14" alt="" style="vertical-align:middle;border:0;margin-right:4px;" />LinkedIn</a>`);
     }
-    if (normalizedWebsite) {
-      contactParts.push(`<a href="${escapeHtml(normalizedWebsite)}" style="color: ${palette.meta}; text-decoration: none;"><span style="color: ${palette.meta};">${websiteLabel}</span></a>`);
+    if (normalizedInstagram) {
+      socialParts.push(`<a href="${escapeHtml(normalizedInstagram)}" style="color:#c13584;text-decoration:none;font-size:13px;font-weight:600;" title="Instagram"><img src="https://cdn-icons-png.flaticon.com/16/174/174855.png" width="14" height="14" alt="" style="vertical-align:middle;border:0;margin-right:4px;" />Instagram</a>`);
     }
 
-    const templateConfig = {
-      classic: {
-        avatarSize: 52,
-        avatarRadius: 14,
-        nameSize: 18,
-        titleSize: 13,
-        companySize: 12,
-        companyTransform: 'uppercase',
-        companySpacing: '0.03em',
-        rowGap: 4,
-        companyGap: 10,
-        contactGap: 6,
-        availabilityGap: 14,
-        ctaRadius: 14,
-        ctaPadding: '14px 16px',
-        accentCell: '',
-        ctaIcon: '📬'
-      },
-      compact: {
-        avatarSize: 44,
-        avatarRadius: 12,
-        nameSize: 16,
-        titleSize: 12,
-        companySize: 11,
-        companyTransform: 'none',
-        companySpacing: '0.01em',
-        rowGap: 3,
-        companyGap: 8,
-        contactGap: 4,
-        availabilityGap: 12,
-        ctaRadius: 10,
-        ctaPadding: '12px 14px',
-        accentCell: '',
-        ctaIcon: '->'
-      },
-      editorial: {
-        avatarSize: 52,
-        avatarRadius: 16,
-        nameSize: 18,
-        titleSize: 13,
-        companySize: 12,
-        companyTransform: 'uppercase',
-        companySpacing: '0.08em',
-        rowGap: 4,
-        companyGap: 10,
-        contactGap: 6,
-        availabilityGap: 14,
-        ctaRadius: 16,
-        ctaPadding: '14px 16px',
-        accentCell: `<td style="width: 6px; background: ${palette.company}; border-radius: 999px; font-size: 0; line-height: 0;">&nbsp;</td><td style="width: 14px; font-size: 0; line-height: 0;">&nbsp;</td>`,
-        ctaIcon: '✦'
-      }
-    }[signatureTemplate];
+    // Template configs
+    const templates = {
+      classic:   { avatarSize: 52, avatarRadius: 14, nameSize: 18, titleSize: 13, compSize: 12, compTransform: 'uppercase', compSpacing: '0.03em', rowGap: 4, compGap: 10, contactGap: 6, availGap: 14, ctaR: 14, ctaP: '14px 16px', accentCell: '', ctaIcon: '📬', nameWeight: 700 },
+      minimal:   { avatarSize: 0,  avatarRadius: 0,  nameSize: 15, titleSize: 12, compSize: 11, compTransform: 'none', compSpacing: '0', rowGap: 2, compGap: 6, contactGap: 4, availGap: 10, ctaR: 8, ctaP: '10px 12px', accentCell: '', ctaIcon: '→', nameWeight: 700 },
+      compact:   { avatarSize: 44, avatarRadius: 12, nameSize: 16, titleSize: 12, compSize: 11, compTransform: 'none', compSpacing: '0.01em', rowGap: 3, compGap: 8, contactGap: 4, availGap: 12, ctaR: 10, ctaP: '12px 14px', accentCell: '', ctaIcon: '→', nameWeight: 700 },
+      elegant:   { avatarSize: 52, avatarRadius: 999, nameSize: 17, titleSize: 13, compSize: 11, compTransform: 'uppercase', compSpacing: '0.12em', rowGap: 4, compGap: 10, contactGap: 6, availGap: 14, ctaR: 999, ctaP: '14px 18px', accentCell: '', ctaIcon: '✉', nameWeight: 400 },
+      bold:      { avatarSize: 52, avatarRadius: 14, nameSize: 22, titleSize: 14, compSize: 12, compTransform: 'uppercase', compSpacing: '0.06em', rowGap: 4, compGap: 10, contactGap: 6, availGap: 14, ctaR: 14, ctaP: '14px 16px', accentCell: '', ctaIcon: '🔥', nameWeight: 900 },
+      editorial: { avatarSize: 52, avatarRadius: 16, nameSize: 18, titleSize: 13, compSize: 12, compTransform: 'uppercase', compSpacing: '0.08em', rowGap: 4, compGap: 10, contactGap: 6, availGap: 14, ctaR: 16, ctaP: '14px 16px', accentCell: `<td style="width:6px;background:${palette.company};border-radius:999px;font-size:0;line-height:0;">&nbsp;</td><td style="width:14px;font-size:0;line-height:0;">&nbsp;</td>`, ctaIcon: '✦', nameWeight: 700 }
+    };
+    const tc = templates[signatureTemplate] || templates.classic;
 
     const showNewsletterBlock = Boolean(normalizedNewsletter && safeCtaText);
+    const colSpan = signatureTemplate === 'editorial' ? '4' : (tc.avatarSize > 0 ? '2' : '1');
+
     const darkModeStyles = forCopy
-      ? `<style>
-  @media (prefers-color-scheme: dark) {
-    .sig-shell { color: ${signaturePalette.dark.name} !important; }
-    .sig-name { color: ${signaturePalette.dark.name} !important; }
-    .sig-title { color: ${signaturePalette.dark.title} !important; }
-    .sig-company { color: ${signaturePalette.dark.company} !important; }
-    .sig-meta { color: ${signaturePalette.dark.meta} !important; }
-    .sig-muted { color: ${signaturePalette.dark.muted} !important; }
-    .sig-divider { border-color: ${signaturePalette.dark.divider} !important; }
-    .sig-avatar { border-color: ${signaturePalette.dark.avatarBorder} !important; }
-    .sig-cta-table { background-color: ${signaturePalette.dark.ctaBg} !important; border-color: ${signaturePalette.dark.ctaBorder} !important; }
-    .sig-cta-link { color: ${signaturePalette.dark.ctaText} !important; }
-  }
-</style>`
+      ? `<style>@media (prefers-color-scheme:dark){.sig-shell{color:${darkPal.name}!important}.sig-name{color:${darkPal.name}!important}.sig-title{color:${darkPal.title}!important}.sig-company{color:${darkPal.company}!important}.sig-meta{color:${darkPal.meta}!important}.sig-muted{color:${darkPal.muted}!important}.sig-divider{border-color:${darkPal.divider}!important}.sig-avatar{border-color:${darkPal.avatarBorder}!important}.sig-cta-table{background-color:${darkPal.ctaBg}!important;border-color:${darkPal.ctaBorder}!important}.sig-cta-link{color:${darkPal.ctaText}!important}}</style>`
       : '';
 
+    // Avatar cell (hidden for "minimal")
+    const avatarCell = tc.avatarSize > 0 ? `
+      <td style="vertical-align:top;padding-right:16px;width:${tc.avatarSize + 16}px;">
+        <img src="${escapeHtml(finalLogo)}" width="${tc.avatarSize}" height="${tc.avatarSize}" alt="${safeCompany || safeName}" class="sig-avatar" style="display:block;width:${tc.avatarSize}px;height:${tc.avatarSize}px;border-radius:${tc.avatarRadius}px;border:1px solid ${palette.avatarBorder};object-fit:cover;" />
+      </td>` : '';
+
     const contentCell = `
-      <td style="vertical-align: top; padding: 0;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-          <tr>
-            <td class="sig-name" style="font-size: ${templateConfig.nameSize}px; line-height: 1.2; font-weight: 700; color: ${palette.name}; padding: 0 0 ${templateConfig.rowGap}px; mso-line-height-rule: exactly;">${safeName}</td>
-          </tr>
-          ${safeTitle ? `<tr><td class="sig-title" style="font-size: ${templateConfig.titleSize}px; line-height: 1.45; font-weight: 600; color: ${palette.title}; padding: 0 0 ${templateConfig.rowGap}px; mso-line-height-rule: exactly;">${safeTitle}</td></tr>` : ''}
-          ${safeCompany ? `<tr><td class="sig-company" style="font-size: ${templateConfig.companySize}px; line-height: 1.4; font-weight: 700; letter-spacing: ${templateConfig.companySpacing}; text-transform: ${templateConfig.companyTransform}; color: ${palette.company}; padding: 0 0 ${templateConfig.companyGap}px; mso-line-height-rule: exactly;">${safeCompany}</td></tr>` : ''}
-          ${contactParts.length > 0 ? `<tr><td class="sig-meta" style="font-size: 13px; line-height: 1.5; color: ${palette.meta}; padding: 0 0 ${templateConfig.contactGap}px; mso-line-height-rule: exactly;">${contactParts.join(`<span class="sig-muted" style="color: ${palette.muted};"> &nbsp;•&nbsp; </span>`)}</td></tr>` : ''}
-          ${normalizedLinkedin ? `<tr><td style="padding: 0 0 4px;"><a href="${escapeHtml(normalizedLinkedin)}" style="font-size: 13px; line-height: 1.5; color: #0a66c2; text-decoration: none; font-weight: 700;">${linkedinLabel || 'LinkedIn'}</a></td></tr>` : ''}
+      <td style="vertical-align:top;padding:0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">
+          <tr><td class="sig-name" style="font-size:${tc.nameSize}px;line-height:1.2;font-weight:${tc.nameWeight};color:${palette.name};padding:0 0 ${tc.rowGap}px;">${safeName}</td></tr>
+          ${safeTitle ? `<tr><td class="sig-title" style="font-size:${tc.titleSize}px;line-height:1.45;font-weight:600;color:${palette.title};padding:0 0 ${tc.rowGap}px;">${safeTitle}</td></tr>` : ''}
+          ${safeCompany ? `<tr><td class="sig-company" style="font-size:${tc.compSize}px;line-height:1.4;font-weight:700;letter-spacing:${tc.compSpacing};text-transform:${tc.compTransform};color:${palette.company};padding:0 0 ${tc.compGap}px;">${safeCompany}</td></tr>` : ''}
+          ${contactParts.length ? `<tr><td class="sig-meta" style="font-size:13px;line-height:1.5;color:${palette.meta};padding:0 0 ${tc.contactGap}px;">${contactParts.join(`<span class="sig-muted" style="color:${palette.muted};"> &nbsp;•&nbsp; </span>`)}</td></tr>` : ''}
+          ${socialParts.length ? `<tr><td style="padding:0 0 4px;font-size:13px;line-height:1.5;">${socialParts.join(`<span style="color:${palette.muted};"> &nbsp; </span>`)}</td></tr>` : ''}
         </table>
       </td>`;
 
     const newsletterBlock = showNewsletterBlock ? `
     <tr>
-      <td colspan="2" style="padding: 14px 0 0;">
+      <td colspan="${colSpan}" style="padding:14px 0 0;">
         <!--[if mso]>
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; width: 100%; border: 1px solid ${palette.ctaBorder}; background: ${palette.ctaBg};">
-          <tr>
-            <td style="padding: ${templateConfig.ctaPadding}; width: 24px; font-size: 14px; color: ${palette.ctaText};">${templateConfig.ctaIcon}</td>
-            <td style="padding: ${templateConfig.ctaPadding}; padding-left: 0;">
-              <a href="${escapeHtml(normalizedNewsletter)}" style="display: inline-block; font-size: 13px; line-height: 1.5; font-weight: 700; color: ${palette.ctaText}; text-decoration: none;">${safeCtaText}</a>
-            </td>
-          </tr>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;width:100%;border:1px solid ${palette.ctaBorder};background:${palette.ctaBg};">
+          <tr><td style="padding:${tc.ctaP};width:24px;font-size:14px;color:${palette.ctaText};">${tc.ctaIcon}</td>
+          <td style="padding:${tc.ctaP};padding-left:0;"><a href="${escapeHtml(normalizedNewsletter)}" style="display:inline-block;font-size:13px;line-height:1.5;font-weight:700;color:${palette.ctaText};text-decoration:none;">${safeCtaText}</a></td></tr>
         </table>
         <![endif]-->
         <!--[if !mso]><!-->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="sig-cta-table" style="border-collapse: separate; width: 100%; border: 1px solid ${palette.ctaBorder}; border-radius: ${templateConfig.ctaRadius}px; background-color: ${palette.ctaBg}; mso-table-lspace: 0pt; mso-table-rspace: 0pt; overflow: hidden;">
-          <tr>
-            <td style="padding: ${templateConfig.ctaPadding}; width: 28px; vertical-align: top; font-size: 18px; line-height: 1;">${templateConfig.ctaIcon}</td>
-            <td style="padding: ${templateConfig.ctaPadding}; padding-left: 0; vertical-align: middle;">
-              <a class="sig-cta-link" href="${escapeHtml(normalizedNewsletter)}" style="display: block; font-size: 13px; line-height: 1.5; font-weight: 700; color: ${palette.ctaText}; text-decoration: none;">${safeCtaText}</a>
-            </td>
-          </tr>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="sig-cta-table" style="border-collapse:separate;width:100%;border:1px solid ${palette.ctaBorder};border-radius:${tc.ctaR}px;background-color:${palette.ctaBg};overflow:hidden;">
+          <tr><td style="padding:${tc.ctaP};width:28px;vertical-align:top;font-size:18px;line-height:1;">${tc.ctaIcon}</td>
+          <td style="padding:${tc.ctaP};padding-left:0;vertical-align:middle;"><a class="sig-cta-link" href="${escapeHtml(normalizedNewsletter)}" style="display:block;font-size:13px;line-height:1.5;font-weight:700;color:${palette.ctaText};text-decoration:none;">${safeCtaText}</a></td></tr>
         </table>
         <!--<![endif]-->
       </td>
     </tr>` : '';
 
     return `
-<div class="sig-shell" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: ${signaturePalette.light.name}; max-width: 520px; text-align: left; line-height: 1.4;">
+<div class="sig-shell" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:${palette.name};max-width:520px;text-align:left;line-height:1.4;">
   ${darkModeStyles}
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 520px; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-    <tr>
-      <td style="vertical-align: top; padding-right: 16px; padding-bottom: 0; width: ${templateConfig.avatarSize + 16}px;">
-        <img
-          src="${escapeHtml(finalLogo)}"
-          width="${templateConfig.avatarSize}"
-          height="${templateConfig.avatarSize}"
-          alt="${safeCompany || safeName}"
-          class="sig-avatar"
-          style="display: block; width: ${templateConfig.avatarSize}px; height: ${templateConfig.avatarSize}px; border-radius: ${templateConfig.avatarRadius}px; border: 1px solid ${palette.avatarBorder}; object-fit: cover;"
-        />
-      </td>
-      ${templateConfig.accentCell}${contentCell}
-    </tr>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:520px;">
+    <tr>${avatarCell}${tc.accentCell}${contentCell}</tr>
     ${safeAvailability ? `
-    <tr>
-      <td colspan="${signatureTemplate === 'editorial' ? '4' : '2'}" class="sig-divider" style="padding: ${templateConfig.availabilityGap}px 0 0; border-top: 1px solid ${palette.divider};"></td>
-    </tr>
-    <tr>
-      <td colspan="${signatureTemplate === 'editorial' ? '4' : '2'}" class="sig-meta" style="padding: 10px 0 0; font-size: 12px; line-height: 1.6; color: ${palette.meta};">${safeAvailability}</td>
-    </tr>` : ''}
-    ${newsletterBlock.replaceAll('colspan="2"', `colspan="${signatureTemplate === 'editorial' ? '4' : '2'}"`)}
+    <tr><td colspan="${colSpan}" class="sig-divider" style="padding:${tc.availGap}px 0 0;border-top:1px solid ${palette.divider};"></td></tr>
+    <tr><td colspan="${colSpan}" class="sig-meta" style="padding:10px 0 0;font-size:12px;line-height:1.6;color:${palette.meta};">${safeAvailability}</td></tr>` : ''}
+    ${newsletterBlock}
   </table>
 </div>`.replace(/\n\s*\n/g, '\n').trim();
   };
@@ -423,7 +296,6 @@ const App = () => {
   const copyRichText = async () => {
     const plainText = buildPlainTextSignature(formData);
     const html = generateSignatureHTML({ forCopy: true });
-
     try {
       await copyHtmlToClipboard(html, plainText);
       setCopyStatus('success');
@@ -432,6 +304,14 @@ const App = () => {
       setCopyStatus('error');
       setTimeout(() => setCopyStatus(null), 4000);
     }
+  };
+
+  // -----------------------------------------------------------------------
+  // UI
+  // -----------------------------------------------------------------------
+  const accentTw = {
+    amber: 'bg-amber-500', blue: 'bg-blue-600', emerald: 'bg-emerald-600',
+    rose: 'bg-rose-600', violet: 'bg-violet-600', teal: 'bg-teal-600', slate: 'bg-slate-500'
   };
 
   return (
@@ -444,47 +324,61 @@ const App = () => {
       <div className={`w-full max-w-6xl px-4 py-8 md:py-16 transition-all duration-700 transform ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
         <header className="text-center mb-8 md:mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/90 border border-slate-200 shadow-sm text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] mb-4">
-            <Heart size={10} className="text-rose-400 fill-rose-400" /> Signy App
+            <Heart size={10} className="text-rose-400 fill-rose-400" /> liut app
           </div>
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-slate-900 mb-4 italic">Signy.</h1>
-          <p className="text-slate-600 text-sm md:text-xl max-w-2xl mx-auto leading-relaxed">Genere, ajuste et recolle une signature mail propre sans perdre tes donnees a chaque recharge.</p>
+          <p className="text-slate-600 text-sm md:text-xl max-w-2xl mx-auto leading-relaxed">Crée ta signature mail pro en 2 minutes — elle reste parfaite sur Gmail, Outlook et Apple Mail.</p>
         </header>
 
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-start">
+          {/* ------------- LEFT: FORM ------------- */}
           <section className="bg-white/95 backdrop-blur p-6 md:p-12 rounded-[3rem] shadow-2xl shadow-slate-200/40 border border-white space-y-6 order-1">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-2"><Layout size={14} /> Profil</h2>
-                <p className="text-sm text-slate-500 max-w-lg">Les champs restent sauvegardes en local sur ce navigateur pour retrouver la signature au prochain ajustement.</p>
+                <p className="text-sm text-slate-500 max-w-lg">Les champs restent sauvegardés en local sur ce navigateur.</p>
               </div>
               <div className="hidden md:flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
                 <ShieldCheck size={16} /> Sauvegarde locale
               </div>
             </div>
+
+            {/* Template picker */}
             <div className="rounded-[2rem] border border-slate-200 bg-slate-50 p-4 md:p-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Template</h3>
-                  <p className="text-sm text-slate-500">Choisis le style de signature le plus adapte au client mail vise.</p>
+                  <p className="text-sm text-slate-500">Choisis le style adapté à ton client mail.</p>
                 </div>
                 <button onClick={handleReset} type="button" className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus:ring-4 focus:ring-amber-100">
-                  Reinitialiser
+                  Réinitialiser
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {Object.entries(TEMPLATE_OPTIONS).map(([templateKey, option]) => (
-                  <button
-                    key={templateKey}
-                    type="button"
-                    onClick={() => setSignatureTemplate(templateKey)}
-                    className={`rounded-[1.5rem] border p-4 text-left transition ${signatureTemplate === templateKey ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-200' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
-                  >
-                    <div className="text-sm font-semibold">{option.label}</div>
-                    <p className={`mt-1 text-xs leading-relaxed ${signatureTemplate === templateKey ? 'text-slate-300' : 'text-slate-500'}`}>{option.description}</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {Object.entries(TEMPLATE_OPTIONS).map(([tKey, opt]) => (
+                  <button key={tKey} type="button" onClick={() => setSignatureTemplate(tKey)}
+                    className={`rounded-[1.5rem] border p-4 text-left transition ${signatureTemplate === tKey ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-200' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}>
+                    <div className="text-sm font-semibold">{opt.label}</div>
+                    <p className={`mt-1 text-xs leading-relaxed ${signatureTemplate === tKey ? 'text-slate-300' : 'text-slate-500'}`}>{opt.description}</p>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Accent colour picker */}
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-50 p-4 md:p-5">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-3"><Palette size={14} /> Couleur d'accent</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(ACCENT_COLORS).map(([key, c]) => (
+                  <button key={key} type="button" onClick={() => setAccentColor(key)}
+                    title={c.label}
+                    className={`w-9 h-9 rounded-full border-2 transition-all ${accentTw[key]} ${accentColor === key ? 'ring-2 ring-offset-2 ring-slate-900 border-white scale-110' : 'border-transparent hover:scale-105'}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Form fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputField label="Nom" name="name" value={formData.name} onChange={handleInputChange} icon={<User size={18} />} autoComplete="name" />
               <InputField label="Entreprise" name="company" value={formData.company} onChange={handleInputChange} icon={<Briefcase size={18} />} autoComplete="organization" />
@@ -494,7 +388,10 @@ const App = () => {
               <InputField label="Mobile" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} icon={<Phone size={18} />} autoComplete="tel" />
               <InputField label="Site" name="website" type="url" value={formData.website} onChange={handleInputChange} icon={<Globe size={18} />} autoComplete="url" />
             </div>
-            <InputField label="LinkedIn" name="linkedin" type="url" value={formData.linkedin} onChange={handleInputChange} icon={<Linkedin size={18} />} autoComplete="url" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InputField label="LinkedIn" name="linkedin" type="url" value={formData.linkedin} onChange={handleInputChange} icon={<Linkedin size={18} />} autoComplete="url" />
+              <InputField label="Instagram" name="instagram" type="url" value={formData.instagram} onChange={handleInputChange} icon={<Instagram size={18} />} autoComplete="url" />
+            </div>
             <InputField label="Logo URL" name="logoUrl" type="url" value={formData.logoUrl} onChange={handleInputChange} icon={<ImageIcon size={18} />} placeholder="Laissez vide pour avatar auto" autoComplete="url" />
             <div className="pt-6 border-t border-slate-100 space-y-4">
               <InputField label="Lien Newsletter" name="newsletterUrl" type="url" value={formData.newsletterUrl} onChange={handleInputChange} icon={<Mail size={18} />} autoComplete="url" />
@@ -503,26 +400,27 @@ const App = () => {
             </div>
             <button onClick={copyRichText} className="w-full bg-slate-950 text-white py-5 px-6 rounded-3xl font-bold hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-200 focus:outline-none focus:ring-4 focus:ring-amber-200">
               {copyStatus === 'success' ? <Check size={22} className="text-emerald-400" /> : <Copy size={22} />}
-              {copyStatus === 'success' ? 'Signature copiée' : copyStatus === 'error' ? 'Copie a reessayer' : 'Copier pour Gmail, Mail et Outlook'}
+              {copyStatus === 'success' ? 'Signature copiée !' : copyStatus === 'error' ? 'Copie à réessayer' : 'Copier pour Gmail, Mail et Outlook'}
             </button>
             <p className="text-xs leading-relaxed text-slate-500 flex items-start gap-2">
               <HelpCircle size={14} className="mt-0.5 shrink-0 text-slate-400" />
-              La copie inclut du HTML et du texte brut pour maximiser le collage dans Gmail, Apple Mail et Outlook. Selon le client, un collage via raccourci clavier reste le plus fiable.
+              La copie inclut du HTML et du texte brut. Utilisez Ctrl+V / ⌘V dans les réglages de signature de votre client mail.
             </p>
           </section>
 
+          {/* ------------- RIGHT: PREVIEW ------------- */}
           <section className="lg:sticky lg:top-8 space-y-6 order-2">
             <div className="flex items-center justify-between px-4">
-              <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Apercu</h2>
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Aperçu</h2>
               <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-200">
-                <button aria-label="Afficher l'apercu clair" onClick={() => setPreviewTheme('light')} className={`p-2.5 rounded-xl transition-all ${previewTheme === 'light' ? 'bg-amber-100 text-amber-700' : 'text-slate-400'}`}><Sun size={18} /></button>
-                <button aria-label="Afficher l'apercu sombre" onClick={() => setPreviewTheme('dark')} className={`p-2.5 rounded-xl transition-all ${previewTheme === 'dark' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}><Moon size={18} /></button>
+                <button aria-label="Aperçu clair" onClick={() => setPreviewTheme('light')} className={`p-2.5 rounded-xl transition-all ${previewTheme === 'light' ? 'bg-amber-100 text-amber-700' : 'text-slate-400'}`}><Sun size={18} /></button>
+                <button aria-label="Aperçu sombre" onClick={() => setPreviewTheme('dark')} className={`p-2.5 rounded-xl transition-all ${previewTheme === 'dark' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}><Moon size={18} /></button>
               </div>
             </div>
             <div className={`w-full min-h-[450px] rounded-[3.5rem] p-8 md:p-10 transition-all duration-500 border-8 ${previewTheme === 'light' ? 'bg-white border-white shadow-2xl shadow-slate-200/40' : 'bg-slate-950 border-slate-800 shadow-2xl'}`}>
               <div className={`mb-12 flex gap-3 opacity-10 ${previewTheme === 'dark' ? 'invert' : ''}`}><div className="w-2.5 h-2.5 rounded-full bg-slate-900" /><div className="w-2.5 h-2.5 rounded-full bg-slate-900" /><div className="w-2.5 h-2.5 rounded-full bg-slate-900" /></div>
               <div className={`mb-5 flex items-center justify-between gap-4 rounded-2xl border border-dashed px-4 py-3 text-xs leading-relaxed ${previewTheme === 'light' ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>
-                <span>Template {TEMPLATE_OPTIONS[signatureTemplate].label.toLowerCase()} avec tableaux, styles inline et bloc newsletter adapte pour Outlook.</span>
+                <span>Template {TEMPLATE_OPTIONS[signatureTemplate].label.toLowerCase()} · accent {ACCENT_COLORS[accentColor].label.toLowerCase()}</span>
                 <ShieldCheck size={16} className="shrink-0" />
               </div>
               <div ref={signatureRef} className={`w-full overflow-x-auto rounded-[2rem] p-6 ${previewTheme === 'light' ? 'bg-white' : 'bg-slate-900'}`} dangerouslySetInnerHTML={{ __html: generateSignatureHTML() }} />
@@ -531,15 +429,15 @@ const App = () => {
                <Zap className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform" size={100} />
                <h4 className="font-bold text-xs flex items-center gap-2 mb-4 text-amber-300"><MousePointer2 size={16} /> Guide Rapide</h4>
                <ul className="text-[12px] text-slate-300 space-y-3 leading-relaxed relative z-10">
-                 <li className="flex gap-2"><span>&bull;</span> Renseigne ou ajuste les champs a gauche.</li>
-                 <li className="flex gap-2"><span>&bull;</span> Copie la signature HTML preparee pour les clients mail.</li>
-                 <li className="flex gap-2"><span>&bull;</span> Colle-la dans les reglages de signature de Gmail, Mail ou Outlook.</li>
+                 <li className="flex gap-2"><span>&bull;</span> Renseigne ou ajuste les champs à gauche.</li>
+                 <li className="flex gap-2"><span>&bull;</span> Copie la signature HTML préparée pour les clients mail.</li>
+                 <li className="flex gap-2"><span>&bull;</span> Colle-la dans les réglages de signature de Gmail, Mail ou Outlook.</li>
                </ul>
             </div>
           </section>
         </main>
       </div>
-      <footer className="mt-8 md:mt-16 text-slate-300 text-[10px] uppercase tracking-[0.5em] pb-12 font-black">Signy &bull; 2026</footer>
+      <footer className="mt-8 md:mt-16 text-slate-300 text-[10px] uppercase tracking-[0.5em] pb-12 font-black">Signy &bull; 2025</footer>
     </div>
   );
 };
@@ -561,7 +459,6 @@ const TextAreaField = ({ label, name, value, onChange }) => (
   </div>
 );
 
-// Initialisation sécurisée du rendu React
 const rootElement = document.getElementById('root');
 if (rootElement) {
   const root = createRoot(rootElement);
