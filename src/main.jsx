@@ -92,11 +92,20 @@ const formatPhone = (raw = '') => {
   const digits = raw.replace(/[^\d+]/g, '');
   if (!digits) return raw;
   if (digits.startsWith('+')) {
-    const cc = digits.slice(0, 3);
-    const rest = digits.slice(3);
-    return cc + ' ' + rest.replace(/(\d{1,2})(?=\d)/g, '$1 ').trim();
+    const cc = digits.slice(0, 3); // e.g. +33
+    const rest = digits.slice(3);  // e.g. 626880686
+    if (rest.length === 9) {
+      // French mobile: +33 X XX XX XX XX
+      return cc + ' ' + rest[0] + ' ' + rest.slice(1).replace(/(\d{2})/g, '$1 ').trim();
+    }
+    // Generic: pairs from the right
+    return cc + ' ' + rest.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
   }
-  return digits.replace(/(\d{1,2})(?=\d)/g, '$1 ').trim();
+  if (digits.length === 10) {
+    // 06 26 88 06 86
+    return digits.replace(/(\d{2})/g, '$1 ').trim();
+  }
+  return digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
 };
 
 // ---------------------------------------------------------------------------
