@@ -229,18 +229,15 @@ const App = () => {
 
     // Social links — icon-only by default, icon+text for bold & editorial
     const showSocialText = signatureTemplate === 'bold' || signatureTemplate === 'editorial';
-    // Externally-hosted PNG icons — data: URIs are blocked by Gmail
-    const liIcon = `https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/32px-LinkedIn_logo_initials.png`;
-    const igIcon = `https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/32px-Instagram_icon.png`;
 
     const socialParts = [];
     if (normalizedLinkedin) {
       const label = showSocialText ? `<span style="margin-left:5px;">LinkedIn</span>` : '';
-      socialParts.push(`<a href="${escapeHtml(normalizedLinkedin)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#0a66c2;font-size:13px;font-weight:600;line-height:1;" title="LinkedIn"><img src="${liIcon}" width="16" height="16" alt="LinkedIn" style="display:inline-block;vertical-align:middle;border:0;" />${label}</a>`);
+      socialParts.push(`<a href="${escapeHtml(normalizedLinkedin)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#0a66c2;font-size:13px;font-weight:600;line-height:1;" title="LinkedIn"><span aria-hidden="true" style="display:inline-block;vertical-align:middle;width:16px;height:16px;border-radius:3px;background:#0a66c2;color:#ffffff;font-size:10px;font-family:Arial,Helvetica,sans-serif;font-weight:700;line-height:16px;text-align:center;">in</span>${label}</a>`);
     }
     if (normalizedInstagram) {
       const label = showSocialText ? `<span style="margin-left:5px;">Instagram</span>` : '';
-      socialParts.push(`<a href="${escapeHtml(normalizedInstagram)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#c13584;font-size:13px;font-weight:600;line-height:1;" title="Instagram"><img src="${igIcon}" width="16" height="16" alt="Instagram" style="display:inline-block;vertical-align:middle;border:0;" />${label}</a>`);
+      socialParts.push(`<a href="${escapeHtml(normalizedInstagram)}" style="display:inline-block;vertical-align:middle;text-decoration:none;color:#c13584;font-size:13px;font-weight:600;line-height:1;" title="Instagram"><span aria-hidden="true" style="display:inline-block;vertical-align:middle;width:16px;height:16px;border-radius:4px;background:#c13584;color:#ffffff;font-size:10px;font-family:Arial,Helvetica,sans-serif;font-weight:700;line-height:16px;text-align:center;">ig</span>${label}</a>`);
     }
 
     // Template configs
